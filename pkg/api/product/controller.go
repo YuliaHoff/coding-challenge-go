@@ -3,10 +3,12 @@ package product
 import (
 	"coding-challenge-go/pkg/api/seller"
 	"encoding/json"
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"net/http"
 )
 
 const (
@@ -15,15 +17,15 @@ const (
 
 func NewController(repository *repository, sellerRepository *seller.Repository, sellerEmailProvider *seller.EmailProvider) *controller {
 	return &controller{
-		repository: repository,
-		sellerRepository: sellerRepository,
+		repository:          repository,
+		sellerRepository:    sellerRepository,
 		sellerEmailProvider: sellerEmailProvider,
 	}
 }
 
 type controller struct {
-	repository *repository
-	sellerRepository *seller.Repository
+	repository          *repository
+	sellerRepository    *seller.Repository
 	sellerEmailProvider *seller.EmailProvider
 }
 
@@ -37,7 +39,7 @@ func (pc *controller) List(c *gin.Context) {
 		return
 	}
 
-	products, err  := pc.repository.list((request.Page - 1) * LIST_PAGE_SIZE, LIST_PAGE_SIZE)
+	products, err := pc.repository.list((request.Page-1)*LIST_PAGE_SIZE, LIST_PAGE_SIZE)
 
 	if err != nil {
 		log.Error().Err(err).Msg("Fail to query product list")
@@ -45,7 +47,17 @@ func (pc *controller) List(c *gin.Context) {
 		return
 	}
 
-	productsJson, err := json.Marshal(products)
+	var productsJson []byte
+	if strings.Contains(c.FullPath(), "api/v2") {
+		var v2products []productV2
+		for _, currProduct := range products {
+			v2Product := convertProductToV2Product(*currProduct)
+			v2products = append(v2products, v2Product)
+		}
+		productsJson, err = json.Marshal(v2products)
+	} else {
+		productsJson, err = json.Marshal(products)
+	}
 
 	if err != nil {
 		log.Error().Err(err).Msg("Fail to marshal products")
@@ -74,7 +86,14 @@ func (pc *controller) Get(c *gin.Context) {
 		return
 	}
 
-	productJson, err := json.Marshal(product)
+	var productJson []byte
+
+	if strings.Contains(c.FullPath(), "api/v2") {
+		v2Product := convertProductToV2Product(*product)
+		productJson, err = json.Marshal(v2Product)
+	} else {
+		productJson, err = json.Marshal(product)
+	}
 
 	if err != nil {
 		log.Error().Err(err).Msg("Fail to marshal product")
@@ -87,9 +106,9 @@ func (pc *controller) Get(c *gin.Context) {
 
 func (pc *controller) Post(c *gin.Context) {
 	request := &struct {
-		Name string `form:"name"`
-		Brand string `form:"brand"`
-		Stock int `form:"stock"`
+		Name   string `form:"name"`
+		Brand  string `form:"brand"`
+		Stock  int    `form:"stock"`
 		Seller string `form:"seller"`
 	}{}
 
@@ -112,11 +131,11 @@ func (pc *controller) Post(c *gin.Context) {
 	}
 
 	product := &product{
-		UUID:      uuid.New().String(),
-		Name:      request.Name,
-		Brand:     request.Brand,
-		Stock:     request.Stock,
-		SellerUUID:    seller.UUID,
+		UUID:       uuid.New().String(),
+		Name:       request.Name,
+		Brand:      request.Brand,
+		Stock:      request.Stock,
+		SellerUUID: seller.UUID,
 	}
 
 	err = pc.repository.insert(product)
@@ -157,9 +176,9 @@ func (pc *controller) Put(c *gin.Context) {
 	}
 
 	request := &struct {
-		Name string `form:"name"`
+		Name  string `form:"name"`
 		Brand string `form:"brand"`
-		Stock int `form:"stock"`
+		Stock int    `form:"stock"`
 	}{}
 
 	if err := c.ShouldBindJSON(request); err != nil {
@@ -236,4 +255,21 @@ func (pc *controller) Delete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{})
+}
+
+func convertProductToV2Product(v1Product product) productV2 {
+	links := make(map[string]link)
+	links["self"] = link{Href: "http://localhost:8080/sellers/" + v1Product.SellerUUID}
+	sellerObj := productSeller{
+		UUID:  v1Product.SellerUUID,
+		Links: links,
+	}
+	v2Product := productV2{
+		Brand:  v1Product.Brand,
+		Name:   v1Product.Name,
+		Stock:  v1Product.Stock,
+		UUID:   v1Product.UUID,
+		Seller: sellerObj,
+	}
+	return v2Product
 }
