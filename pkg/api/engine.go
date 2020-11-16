@@ -28,6 +28,7 @@ func CreateAPIEngine(db *sql.DB, config config.Config) (*gin.Engine, error) {
 	v1.DELETE("product", productController.Delete)
 	sellerController := seller.NewController(sellerRepository)
 	v1.GET("sellers", sellerController.List)
+	v2.GET("sellers/top10", productController.GetTop10Sellers)
 
 	return r, nil
 }

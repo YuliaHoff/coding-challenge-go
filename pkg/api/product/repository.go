@@ -1,6 +1,7 @@
 package product
 
 import (
+	"coding-challenge-go/pkg/api/seller"
 	"database/sql"
 )
 
@@ -56,10 +57,10 @@ func (r *repository) update(product *product) error {
 
 func (r *repository) list(offset int, limit int) ([]*product, error) {
 	rows, err := r.db.Query(
-		"SELECT p.id_product, p.name, p.brand, p.stock, s.uuid, p.uuid FROM product p " +
+		"SELECT p.id_product, p.name, p.brand, p.stock, s.uuid, p.uuid FROM product p "+
 			"INNER JOIN seller s ON(s.id_seller = p.fk_seller) LIMIT ? OFFSET ?",
-			limit, offset,
-		)
+		limit, offset,
+	)
 
 	if err != nil {
 		return nil, err
@@ -81,14 +82,15 @@ func (r *repository) list(offset int, limit int) ([]*product, error) {
 		products = append(products, product)
 	}
 
-	return products, nil}
+	return products, nil
+}
 
 func (r *repository) findByUUID(uuid string) (*product, error) {
 	rows, err := r.db.Query(
-		"SELECT p.id_product, p.name, p.brand, p.stock, s.uuid, p.uuid FROM product p " +
+		"SELECT p.id_product, p.name, p.brand, p.stock, s.uuid, p.uuid FROM product p "+
 			"INNER JOIN seller s ON(s.id_seller = p.fk_seller) WHERE p.uuid = ?",
-			uuid,
-		)
+		uuid,
+	)
 
 	if err != nil {
 		return nil, err
@@ -109,4 +111,31 @@ func (r *repository) findByUUID(uuid string) (*product, error) {
 	}
 
 	return product, nil
+}
+
+func (r *repository) getTopSellers(resultsCount int) ([]*seller.Seller, error) {
+	rows, err := r.db.Query(
+		"SELECT s.id_seller, s.name, s.email, s.phone, s.uuid FROM seller s "+
+			"INNER JOIN (SELECT fk_seller, COUNT(*) top FROM product.product GROUP BY fk_seller) p "+
+			"ON (p.fk_seller = s.id_seller) ORDER BY p.top DESC LIMIT ?", resultsCount,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var topSellers []*seller.Seller
+	for rows.Next() {
+		seller := &seller.Seller{}
+		err = rows.Scan(&seller.SellerID, &seller.Name, &seller.Email, &seller.Phone, &seller.UUID)
+		if err != nil {
+			return nil, err
+		}
+
+		topSellers = append(topSellers, seller)
+	}
+
+	return topSellers, nil
 }

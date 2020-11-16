@@ -104,6 +104,25 @@ func (pc *controller) Get(c *gin.Context) {
 	c.Data(http.StatusOK, "application/json; charset=utf-8", productJson)
 }
 
+func (pc *controller) GetTop10Sellers(c *gin.Context) {
+	topSellers, err := pc.repository.getTopSellers(10)
+	if err != nil {
+		log.Error().Err(err).Msg("Fail to query top 10 list")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Fail to query top 10 sellers list"})
+		return
+	}
+
+	sellersJson, err := json.Marshal(topSellers)
+
+	if err != nil {
+		log.Error().Err(err).Msg("Fail to marshal top 10 sellers")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Fail to marshal top 10 sellers"})
+		return
+	}
+
+	c.Data(http.StatusOK, "application/json; charset=utf-8", sellersJson)
+}
+
 func (pc *controller) Post(c *gin.Context) {
 	request := &struct {
 		Name   string `form:"name"`
