@@ -1,12 +1,13 @@
 package seller
 
-func NewEmailProvider() *EmailProvider {
-	return &EmailProvider{}
+func NewEmailProvider(email string) *EmailProvider {
+	return &EmailProvider{SellerEmail: email}
 }
 
 type EmailProvider struct {
+	SellerEmail string `json:"seller_email"`
 }
 
-func (ep *EmailProvider) StockChanged(oldStock int, newStock int, product string) {
+func (ep *EmailProvider) StockChanged(oldStock int, newStock int) {
 
 }

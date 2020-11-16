@@ -1,0 +1,3 @@
+# seller configurations
+seller:
+  notification_type: "sms" # sms / email / both
